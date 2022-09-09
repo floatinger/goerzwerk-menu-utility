@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+MONTH=$(date +%m)
+YEAR=$(date +%Y)
+DAY=$(date +%e)
+
+WP_URL="https://www.goerzwerk.de/wp-content/uploads"
+FILENAME="Speisekarte-$MONTH-$YEAR.pdf"
+
+GREP_PAGE_NOT_FOUND='Page Not Found'
+ECHO_PAGE_NOT_FOUND='Page not found'
+ECHO_NO_MENU='No menu today :('
+
+mkdir -p menus && cd menus || exit
+
+function downloadMenuVariations() {
+  for i in {1..12}; do
+      if downloadMenu "0$i"; then
+        break
+      else
+        continue
+      fi
+  done
+}
+
+function downloadMenu() {
+  url=$WP_URL/"$YEAR"/"$1"/"$FILENAME"
+
+  greppedResponse=$(curl --silent "$url" | grep -Po "$GREP_PAGE_NOT_FOUND")
+  if [[ ! "$greppedResponse" ]]; then
+    echo "Proceeding with download"
+    curl --silent "$url" --remote-name
+    return 0;
+  else
+    echo "$ECHO_PAGE_NOT_FOUND"
+    return 1;
+  fi
+}
+
+if ! [ -f "$FILENAME" ]; then # if file does not exist, download it
+  downloadMenuVariations
+fi
+
+pdfToTextResponse=$(pdftotext -enc UTF-8 -table "$FILENAME" - | grep -a -A 4 "$DAY. ")
+if [[ "$pdfToTextResponse" ]]; then
+    echo "$pdfToTextResponse"
+  else
+    echo "$ECHO_NO_MENU"
+  fi
